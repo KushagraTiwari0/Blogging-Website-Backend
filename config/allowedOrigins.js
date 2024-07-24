@@ -2,7 +2,7 @@
 const allowedOrigins = [
     'http://localhost:5173',
     'http://localhost:4200',
-    'blogm3.netlify.app'
+    'https://blogm3.netlify.app'
 
 ];
 
