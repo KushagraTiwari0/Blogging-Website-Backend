@@ -3,7 +3,6 @@ const uniqueValidator = require("mongoose-unique-validator");
 const User = require("./User");
 const slugify = require("slugify");
 
-//each of the field ensures the mongoDB documents adhere to this
 const articleSchema = new mongoose.Schema(
   {
     slug: {
@@ -33,10 +32,18 @@ const articleSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
     },
+    // ── Favorites ──────────────────────────────────────────
+    favorites: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
     favoritesCount: {
       type: Number,
       default: 0,
     },
+    // ── Comments ───────────────────────────────────────────
     comments: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -51,44 +58,62 @@ const articleSchema = new mongoose.Schema(
 
 articleSchema.plugin(uniqueValidator);
 
+// Slug from title
+articleSchema.pre("save", function (next) {
+  this.slug = slugify(this.title, { lower: true, replacement: "-" });
+  next();
+});
 
-//middleware to run before saving the article
+// ── Favorite helpers ───────────────────────────────────────────
+articleSchema.methods.favorite = function (userId) {
+  if (!this.favorites.includes(userId)) {
+    this.favorites.push(userId);
+    this.favoritesCount = this.favorites.length;
+  }
+  return this.save();
+};
 
-articleSchema.pre('save', function(next){
+articleSchema.methods.unfavorite = function (userId) {
+  this.favorites = this.favorites.filter(
+    (id) => id.toString() !== userId.toString()
+  );
+  this.favoritesCount = this.favorites.length;
+  return this.save();
+};
 
-    this.slug = slugify(this.title, {lower:true, replacement:'-'});
+articleSchema.methods.isFavoritedBy = function (userId) {
+  if (!userId) return false;
+  return this.favorites.some((id) => id.toString() === userId.toString());
+};
 
-    next();
-} )
-
-//user is the logged in user
+// ── Article response ───────────────────────────────────────────
 articleSchema.methods.toArticleResponse = async function (user) {
   const authorObj = await User.findById(this.author).exec();
 
   return {
-    slug: this.slug,
-    title: this.title,
-    description: this.description,
-    body: this.body,
-    createdAt: this.createdAt,
-    updatedAt: this.updatedAt,
-    favorited: false,
+    slug:           this.slug,
+    title:          this.title,
+    description:    this.description,
+    body:           this.body,
+    createdAt:      this.createdAt,
+    updatedAt:      this.updatedAt,
+    tagList:        this.tagList,
+    favorited:      user ? this.isFavoritedBy(user._id ?? user.id) : false,
     favoritesCount: this.favoritesCount,
-    author: authorObj.toProfileJSON(user),
+    author:         authorObj.toProfileJSON(user),
   };
 };
 
+// ── Comment helpers ────────────────────────────────────────────
 articleSchema.methods.addComment = async function (commentId) {
-
-  if(this.comments.indexOf(commentId) === -1){
+  if (this.comments.indexOf(commentId) === -1) {
     this.comments.push(commentId);
   }
   return this.save();
 };
 
-
 articleSchema.methods.removeComment = async function (commentId) {
-  if(this.comments.indexOf(commentId) !== -1){
+  if (this.comments.indexOf(commentId) !== -1) {
     this.comments.pull(commentId);
   }
   return this.save();
