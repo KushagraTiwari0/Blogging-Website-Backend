@@ -111,9 +111,70 @@ const getArticleWithSlug = async (req,res) => {
 
 
 
+
+const updateArticle = async (req, res) => {
+    try {
+        const { slug } = req.params;
+        const userId = req.userId;
+
+        const article = await Article.findOne({ slug }).exec();
+
+        if (!article) {
+            return res.status(404).json({ message: 'Article Not Found' });
+        }
+
+        // Only the author can update
+        if (article.author.toString() !== userId.toString()) {
+            return res.status(403).json({ message: 'You are not authorized to update this article' });
+        }
+
+        const { title, description, body, tagList } = req.body.article;
+
+        if (title !== undefined) article.title = title;
+        if (description !== undefined) article.description = description;
+        if (body !== undefined) article.body = body;
+        if (Array.isArray(tagList)) article.tagList = tagList;
+
+        await article.save();
+
+        const author = await User.findById(userId).exec();
+        return res.status(200).json({ article: await article.toArticleResponse(author) });
+    } catch (err) {
+        console.error('Error updating article', err);
+        return res.status(500).json({ error: 'Error updating article' });
+    }
+};
+
+const deleteArticle = async (req, res) => {
+    try {
+        const { slug } = req.params;
+        const userId = req.userId;
+
+        const article = await Article.findOne({ slug }).exec();
+
+        if (!article) {
+            return res.status(404).json({ message: 'Article Not Found' });
+        }
+
+        // Only the author can delete
+        if (article.author.toString() !== userId.toString()) {
+            return res.status(403).json({ message: 'You are not authorized to delete this article' });
+        }
+
+        await Article.deleteOne({ _id: article._id });
+        return res.status(200).json({ message: 'Article deleted successfully' });
+    } catch (err) {
+        console.error('Error deleting article', err);
+        return res.status(500).json({ error: 'Error deleting article' });
+    }
+};
+
+
 module.exports = {
     createArticle,
     feedArticles,
     listArticles,
-    getArticleWithSlug
+    getArticleWithSlug,
+    updateArticle,
+    deleteArticle
 };

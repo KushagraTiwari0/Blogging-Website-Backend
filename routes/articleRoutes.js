@@ -15,6 +15,10 @@ router.get('/feed', verifyJWTOptional, articlesController.feedArticles);
 
 router.get('/:slug', verifyJWTOptional, articlesController.getArticleWithSlug);
 
+router.put('/:slug', verifyJWT, articlesController.updateArticle);
+
+router.delete('/:slug', verifyJWT, articlesController.deleteArticle);
+
 
 
 
