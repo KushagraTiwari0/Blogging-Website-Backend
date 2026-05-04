@@ -27,8 +27,6 @@ const feedArticles = async (req, res) => {
     const user = req.loggedin ? await User.findById(req.userId).exec() : null;
 
     if (!user || !user.following?.length) {
-      // Not logged in or follows nobody — return empty so frontend
-      // knows to fall back to global
       return res.status(200).json({ articles: [], followingCount: 0 });
     }
 
@@ -55,10 +53,12 @@ const listArticles = async (req, res) => {
   try {
     let query = {};
 
+    // Filter by tag
     if (req.query.tag) {
       query.tagList = req.query.tag;
     }
 
+    // Filter by author username
     if (req.query.author) {
       const authorUsername = req.query.author.startsWith("@")
         ? req.query.author.substring(1)
@@ -71,16 +71,23 @@ const listArticles = async (req, res) => {
       }
     }
 
+    // ── Filter by favorited username ───────────────────────
+    // Articles store a `favorites` array of user IDs.
+    // Find the user, then find articles where that user's ID
+    // is inside the article's favorites array.
     if (req.query.favorited) {
       const favUsername = req.query.favorited.startsWith("@")
         ? req.query.favorited.substring(1)
         : req.query.favorited;
+
       const favUser = await User.findOne({ username: favUsername }).exec();
-      if (favUser) {
-        query._id = { $in: favUser.favorites ?? [] };
-      } else {
+
+      if (!favUser) {
         return res.status(200).json({ articles: [] });
       }
+
+      // Articles where favUser._id is in article.favorites[]
+      query.favorites = favUser._id;
     }
 
     const articles = await Article.find(query).sort({ createdAt: -1 }).exec();
