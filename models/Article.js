@@ -87,8 +87,8 @@ articleSchema.methods.isFavoritedBy = function (userId) {
 };
 
 // ── Article response ───────────────────────────────────────────
-articleSchema.methods.toArticleResponse = async function (user) {
-  const authorObj = await User.findById(this.author).exec();
+articleSchema.methods.toArticleResponse = async function (user, prefetchedAuthor) {
+  const authorObj = prefetchedAuthor || await User.findById(this.author).exec();
 
   return {
     slug:           this.slug,
@@ -100,7 +100,7 @@ articleSchema.methods.toArticleResponse = async function (user) {
     tagList:        this.tagList,
     favorited:      user ? this.isFavoritedBy(user._id ?? user.id) : false,
     favoritesCount: this.favoritesCount,
-    author:         authorObj.toProfileJSON(user),
+    author:         authorObj ? authorObj.toProfileJSON(user) : null,
   };
 };
 

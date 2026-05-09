@@ -24,22 +24,32 @@ const createArticle = async (req, res) => {
 // ── Your Feed — only posts from followed users ─────────────────
 const feedArticles = async (req, res) => {
   try {
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = parseInt(req.query.offset) || 0;
+
     const user = req.loggedin ? await User.findById(req.userId).exec() : null;
 
     if (!user || !user.following?.length) {
-      return res.status(200).json({ articles: [], followingCount: 0 });
+      return res.status(200).json({ articles: [], articlesCount: 0, followingCount: 0 });
     }
 
-    const articles = await Article.find({ author: { $in: user.following } })
+    const query = { author: { $in: user.following } };
+    const articlesCount = await Article.countDocuments(query);
+    
+    const articles = await Article.find(query)
+      .limit(limit)
+      .skip(offset)
       .sort({ createdAt: -1 })
+      .populate("author")
       .exec();
 
     const formattedArticles = await Promise.all(
-      articles.map((a) => a.toArticleResponse(user))
+      articles.map((a) => a.toArticleResponse(user, a.author))
     );
 
     return res.status(200).json({
       articles: formattedArticles,
+      articlesCount,
       followingCount: user.following.length,
     });
   } catch (err) {
@@ -51,6 +61,9 @@ const feedArticles = async (req, res) => {
 // ── Global Feed ────────────────────────────────────────────────
 const listArticles = async (req, res) => {
   try {
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = parseInt(req.query.offset) || 0;
+
     let query = {};
 
     // Filter by tag
@@ -67,14 +80,11 @@ const listArticles = async (req, res) => {
       if (author) {
         query.author = author._id;
       } else {
-        return res.status(200).json({ articles: [] });
+        return res.status(200).json({ articles: [], articlesCount: 0 });
       }
     }
 
     // ── Filter by favorited username ───────────────────────
-    // Articles store a `favorites` array of user IDs.
-    // Find the user, then find articles where that user's ID
-    // is inside the article's favorites array.
     if (req.query.favorited) {
       const favUsername = req.query.favorited.startsWith("@")
         ? req.query.favorited.substring(1)
@@ -83,21 +93,30 @@ const listArticles = async (req, res) => {
       const favUser = await User.findOne({ username: favUsername }).exec();
 
       if (!favUser) {
-        return res.status(200).json({ articles: [] });
+        return res.status(200).json({ articles: [], articlesCount: 0 });
       }
 
-      // Articles where favUser._id is in article.favorites[]
       query.favorites = favUser._id;
     }
 
-    const articles = await Article.find(query).sort({ createdAt: -1 }).exec();
+    const articlesCount = await Article.countDocuments(query);
+    const articles = await Article.find(query)
+      .limit(limit)
+      .skip(offset)
+      .sort({ createdAt: -1 })
+      .populate("author")
+      .exec();
+
     const user = req.loggedin ? await User.findById(req.userId).exec() : false;
 
     const formattedArticles = await Promise.all(
-      articles.map((a) => a.toArticleResponse(user))
+      articles.map((a) => a.toArticleResponse(user, a.author))
     );
 
-    return res.status(200).json({ articles: formattedArticles });
+    return res.status(200).json({ 
+      articles: formattedArticles,
+      articlesCount 
+    });
   } catch (err) {
     console.error("Error fetching articles", err);
     return res.status(500).json({ error: "Error fetching articles" });
