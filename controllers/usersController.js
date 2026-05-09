@@ -95,7 +95,9 @@ const sendOTP = async (email, purpose = "login") => {
     register: "Use the OTP below to verify your email and complete registration:",
   };
 
-  await transporter.sendMail({
+  // ─── SEND EMAIL (Non-blocking) ─────────────────────────────────────────────
+  // We don't await this to prevent the API response from hanging if SMTP is slow.
+  transporter.sendMail({
     from: `"Blogging Platform" <${process.env.MAIL_USER}>`,
     to: email,
     subject: subjectMap[purpose] || "Your OTP",
@@ -143,9 +145,11 @@ const sendOTP = async (email, purpose = "login") => {
         </div>
       </div>
     `,
+  }).then(() => {
+    console.log(`[MAILER] ✅ OTP email sent to ${email}`);
+  }).catch(err => {
+    console.error(`[MAILER] ❌ Failed to send email to ${email}:`, err.message);
   });
-
-  console.log(`[MAILER] ✅ OTP email sent to ${email}`);
 };
 
 const verifyOTPCode = (email, inputOtp) => {
