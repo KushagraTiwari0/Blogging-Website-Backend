@@ -41,6 +41,10 @@ const userSchema = new mongoose.Schema({
       ref: "User",
     },
   ],
+  lastLogin: {
+    type: Date,
+    default: Date.now,
+  },
 });
 
 // ── Token ──────────────────────────────────────────────────────
@@ -48,7 +52,7 @@ userSchema.methods.generateAccessToken = function () {
   return jwt.sign(
     { user: { id: this._id, email: this.email, password: this.password } },
     process.env.ACCESS_TOKEN_SECRET,
-    { expiresIn: "1d" }
+    { expiresIn: "24h" }
   );
 };
 
