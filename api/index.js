@@ -14,6 +14,12 @@ connectDB();
 app.use(cors(corsOptions));
 app.use(express.json()); //middleware to parse json
 
+// ping route for cron job
+app.get("/ping", (req, res) => {
+  console.log(`server awaked at time ${new Date().toLocaleString()}`);
+  res.status(200).send("Server is awake");
+});
+
 // user routes for /api/users and /api/user
 app.use("/api", require("../routes/userRoutes"));
 
