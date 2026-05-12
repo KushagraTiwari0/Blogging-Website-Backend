@@ -32,15 +32,19 @@ const createTransporter = () => {
   });
 };
 
-createTransporter();
-
-transporter.verify((error) => {
-  if (error) {
-    console.error("[MAILER] ❌ SMTP connection failed:", error.message);
-  } else {
-    console.log("[MAILER] ✅ SMTP connection verified — ready to send mail");
-  }
-});
+try {
+  createTransporter();
+  transporter.verify((error) => {
+    if (error) {
+      console.error("[MAILER] ❌ SMTP connection failed:", error.message);
+    } else {
+      console.log("[MAILER] ✅ SMTP connection verified — ready to send mail");
+    }
+  });
+} catch (err) {
+  console.error("[MAILER] ❌ Failed to initialize mailer:", err.message);
+  console.warn("[MAILER] ⚠️ Email functionality will be unavailable, but the server will continue running.");
+}
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
