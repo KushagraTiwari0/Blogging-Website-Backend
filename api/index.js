@@ -20,6 +20,9 @@ app.get("/ping", (req, res) => {
   res.status(200).send("Server is awake");
 });
 
+// sitemap route (no auth, no CORS needed — accessible by crawlers)
+app.use("/", require("../routes/sitemapRoutes"));
+
 // user routes for /api/users and /api/user
 app.use("/api", require("../routes/userRoutes"));
 
