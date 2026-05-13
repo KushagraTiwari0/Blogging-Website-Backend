@@ -14,7 +14,7 @@ const createArticle = async (req, res) => {
   article.author = id;
 
   if (Array.isArray(tagList) && tagList.length > 0) {
-    article.tagList = tagList;
+    article.tagList = [...new Set(tagList.map(t => t.trim().toLowerCase()).filter(Boolean))];
   }
 
   await article.save();
@@ -149,7 +149,7 @@ const updateArticle = async (req, res) => {
     if (title !== undefined) article.title = title;
     if (description !== undefined) article.description = description;
     if (body !== undefined) article.body = body;
-    if (Array.isArray(tagList)) article.tagList = tagList;
+    if (Array.isArray(tagList)) article.tagList = [...new Set(tagList.map(t => t.trim().toLowerCase()).filter(Boolean))];
 
     await article.save();
     const author = await User.findById(userId).exec();
