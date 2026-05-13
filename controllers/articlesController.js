@@ -66,9 +66,9 @@ const listArticles = async (req, res) => {
 
     let query = {};
 
-    // Filter by tag
+    // Filter by tag (case-insensitive)
     if (req.query.tag) {
-      query.tagList = req.query.tag;
+      query.tagList = { $regex: new RegExp(`^${req.query.tag}$`, 'i') };
     }
 
     // Filter by author username
