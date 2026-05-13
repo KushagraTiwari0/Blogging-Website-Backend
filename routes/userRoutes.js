@@ -15,6 +15,9 @@ router.post('/users/verify-otp', userController.verifyOTP);
 // POST /api/users/resend-otp → resend OTP (shared for login + register)
 router.post('/users/resend-otp', userController.resendOTP);
 
+// POST /api/users/google-auth → Google OAuth (sign in or sign up)
+router.post('/users/google-auth', userController.googleAuth);
+
 // GET  /api/user           → get current logged-in user (protected)
 router.get('/user', verifyJWT, userController.getCurrentUser);
 

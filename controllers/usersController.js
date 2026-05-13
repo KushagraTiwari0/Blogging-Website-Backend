@@ -3,6 +3,10 @@ const bcrypt = require("bcryptjs");
 const dns = require("dns").promises;
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
+const { OAuth2Client } = require("google-auth-library");
+
+// ─── GOOGLE OAUTH ─────────────────────────────────────────────────────────────
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 // ─── OTP STORE ────────────────────────────────────────────────────────────────
 // Stores both OTP codes and pending registrations
@@ -277,6 +281,14 @@ const userLogin = async (req, res) => {
   }
   console.log("[LOGIN] ✅ User found");
 
+  // Google-only users don't have a password
+  if (!loginUser.password) {
+    console.log("[LOGIN] ℹ️ User has no password (Google account)");
+    return res.status(400).json({
+      message: "This account was created with Google. Please use 'Sign in with Google' instead.",
+    });
+  }
+
   const match = await bcrypt.compare(user.password, loginUser.password);
   if (!match) {
     console.log("[LOGIN] ❌ Wrong password");
@@ -408,6 +420,102 @@ const updateUser = async (req, res) => {
   return res.status(200).json({ user: target.toUserResponse() });
 };
 
+/**
+ * GOOGLE AUTH — Sign in or sign up with Google
+ * Verifies Google ID token, finds/creates user, returns JWT.
+ */
+const googleAuth = async (req, res) => {
+  console.log("\n[GOOGLE AUTH] ── New Google auth attempt ────────────");
+  const { credential } = req.body;
+
+  if (!credential) {
+    return res.status(400).json({ message: "Google credential is required" });
+  }
+
+  try {
+    // Verify the Google ID token
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+    const { sub: googleId, email, name, picture } = payload;
+
+    console.log(`[GOOGLE AUTH] Verified Google user: ${email} (sub: ${googleId})`);
+
+    // ── 1. Check if user exists by googleId
+    let user = await User.findOne({ googleId }).exec();
+
+    if (user) {
+      console.log("[GOOGLE AUTH] ✅ Existing Google user found, logging in");
+      user.lastLogin = Date.now();
+      await user.save();
+      return res.status(200).json({
+        message: "Login successful",
+        user: user.toUserResponse(),
+      });
+    }
+
+    // ── 2. Check if user exists by email (link Google to existing account)
+    user = await User.findOne({ email: email.toLowerCase() }).exec();
+
+    if (user) {
+      console.log("[GOOGLE AUTH] ℹ️ Existing email account found — linking Google ID");
+      user.googleId = googleId;
+      if (!user.image && picture) user.image = picture;
+      user.lastLogin = Date.now();
+      await user.save();
+      return res.status(200).json({
+        message: "Login successful — Google account linked!",
+        user: user.toUserResponse(),
+      });
+    }
+
+    // ── 3. New user — create account
+    console.log("[GOOGLE AUTH] Creating new user from Google profile");
+
+    // Generate username from Google name
+    const baseUsername = (name || "user")
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "");
+    const suffix = crypto.randomBytes(3).toString("hex");
+    let username = `${baseUsername}-${suffix}`;
+
+    // Ensure uniqueness
+    const existingUsername = await User.findOne({ username }).exec();
+    if (existingUsername) {
+      username = `${baseUsername}-${crypto.randomBytes(4).toString("hex")}`;
+    }
+
+    const newUser = await User.create({
+      username,
+      email: email.toLowerCase(),
+      googleId,
+      authProvider: "google",
+      image: picture || "",
+      bio: "",
+    });
+
+    console.log(`[GOOGLE AUTH] ✅ New user created: ${username} (${email})`);
+    return res.status(201).json({
+      message: "Account created successfully!",
+      user: newUser.toUserResponse(),
+    });
+
+  } catch (err) {
+    console.error("[GOOGLE AUTH] ❌ Error:", err.message);
+
+    if (err.message.includes("Token used too late") || err.message.includes("Invalid token")) {
+      return res.status(401).json({ message: "Google token expired or invalid. Please try again." });
+    }
+
+    return res.status(500).json({ message: "Google authentication failed. Please try again." });
+  }
+};
+
 module.exports = {
   registerUser,
   userLogin,
@@ -415,4 +523,5 @@ module.exports = {
   resendOTP,
   getCurrentUser,
   updateUser,
+  googleAuth,
 };
