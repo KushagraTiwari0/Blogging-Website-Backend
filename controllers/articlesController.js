@@ -1,5 +1,7 @@
 const Article = require("../models/Article");
 const User = require("../models/User");
+// STEP 6 (Auto-update): Bust sitemap cache after any article mutation
+const sitemapCache = require('../utils/sitemapCache');
 
 const createArticle = async (req, res) => {
   const id = req.userId;
@@ -18,6 +20,10 @@ const createArticle = async (req, res) => {
   }
 
   await article.save();
+
+  // Invalidate sitemap so the new article appears on the next crawl.
+  sitemapCache.invalidate();
+
   return res.status(200).json({ article: await article.toArticleResponse(author) });
 };
 
@@ -152,6 +158,10 @@ const updateArticle = async (req, res) => {
     if (Array.isArray(tagList)) article.tagList = [...new Set(tagList.map(t => t.trim().toLowerCase()).filter(Boolean))];
 
     await article.save();
+
+    // Invalidate sitemap so the updated lastmod is reflected immediately.
+    sitemapCache.invalidate();
+
     const author = await User.findById(userId).exec();
     return res.status(200).json({ article: await article.toArticleResponse(author) });
   } catch (err) {
@@ -171,6 +181,10 @@ const deleteArticle = async (req, res) => {
       return res.status(403).json({ message: "You are not authorized to delete this article" });
 
     await Article.deleteOne({ _id: article._id });
+
+    // Invalidate sitemap so the deleted article is removed from the next crawl.
+    sitemapCache.invalidate();
+
     return res.status(200).json({ message: "Article deleted successfully" });
   } catch (err) {
     console.error("Error deleting article", err);

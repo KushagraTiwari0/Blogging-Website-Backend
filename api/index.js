@@ -20,7 +20,18 @@ app.get("/ping", (req, res) => {
   res.status(200).send("Server is awake");
 });
 
-// sitemap route (no auth, no CORS needed — accessible by crawlers)
+/**
+ * Sitemap & robots.txt — NO authentication, NO CORS needed.
+ * These must be publicly accessible by Google's crawler.
+ *
+ * Required .env vars:
+ *   FRONTEND_URL  — e.g. https://undsund.in
+ *   BACKEND_URL   — e.g. https://blogging-website-backend-9gfs.onrender.com
+ *
+ * Endpoints served:
+ *   GET /sitemap.xml  → dynamically built XML (cached 1 hr, auto-busted on article mutations)
+ *   GET /robots.txt   → crawler directives pointing to the sitemap
+ */
 app.use("/", require("../routes/sitemapRoutes"));
 
 // user routes for /api/users and /api/user
