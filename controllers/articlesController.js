@@ -79,9 +79,9 @@ const listArticles = async (req, res) => {
 
     // Filter by author username
     if (req.query.author) {
-      const authorUsername = req.query.author.startsWith("@")
+      const authorUsername = (req.query.author.startsWith("@")
         ? req.query.author.substring(1)
-        : req.query.author;
+        : req.query.author).trim();
       const author = await User.findOne({ username: authorUsername }).exec();
       if (author) {
         query.author = author._id;
@@ -92,9 +92,9 @@ const listArticles = async (req, res) => {
 
     // ── Filter by favorited username ───────────────────────
     if (req.query.favorited) {
-      const favUsername = req.query.favorited.startsWith("@")
+      const favUsername = (req.query.favorited.startsWith("@")
         ? req.query.favorited.substring(1)
-        : req.query.favorited;
+        : req.query.favorited).trim();
 
       const favUser = await User.findOne({ username: favUsername }).exec();
 

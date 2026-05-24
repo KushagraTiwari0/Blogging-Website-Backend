@@ -3,7 +3,7 @@ const User = require("../models/User");
 // ── Get Profile ────────────────────────────────────────────────
 const getProfile = async (req, res) => {
   const { username } = req.params;
-  const clean = username.startsWith("@") ? username.substring(1) : username;
+  const clean = (username.startsWith("@") ? username.substring(1) : username).trim();
 
   try {
     const profile = await User.findOne({ username: clean }).exec();
@@ -23,7 +23,7 @@ const getProfile = async (req, res) => {
 // ── Follow ─────────────────────────────────────────────────────
 const followUser = async (req, res) => {
   const { username } = req.params;
-  const clean = username.startsWith("@") ? username.substring(1) : username;
+  const clean = (username.startsWith("@") ? username.substring(1) : username).trim();
 
   try {
     const target = await User.findOne({ username: clean }).exec();
@@ -50,7 +50,7 @@ const followUser = async (req, res) => {
 // ── Unfollow ───────────────────────────────────────────────────
 const unfollowUser = async (req, res) => {
   const { username } = req.params;
-  const clean = username.startsWith("@") ? username.substring(1) : username;
+  const clean = (username.startsWith("@") ? username.substring(1) : username).trim();
 
   try {
     const target = await User.findOne({ username: clean }).exec();
@@ -72,7 +72,7 @@ const unfollowUser = async (req, res) => {
 // ── Get Followers list ─────────────────────────────────────────
 const getFollowers = async (req, res) => {
   const { username } = req.params;
-  const clean = username.startsWith("@") ? username.substring(1) : username;
+  const clean = (username.startsWith("@") ? username.substring(1) : username).trim();
 
   try {
     const user = await User.findOne({ username: clean })
@@ -95,7 +95,7 @@ const getFollowers = async (req, res) => {
 // ── Get Following list ─────────────────────────────────────────
 const getFollowing = async (req, res) => {
   const { username } = req.params;
-  const clean = username.startsWith("@") ? username.substring(1) : username;
+  const clean = (username.startsWith("@") ? username.substring(1) : username).trim();
 
   try {
     const user = await User.findOne({ username: clean })

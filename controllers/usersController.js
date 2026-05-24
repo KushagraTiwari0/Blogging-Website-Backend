@@ -214,10 +214,13 @@ const registerUser = async (req, res) => {
     return res.status(400).json({ message: "All fields are required" });
   }
 
-  console.log(`[REGISTER] Email: ${user.email}`);
+  const trimmedEmail = user.email.trim().toLowerCase();
+  const trimmedUsername = user.username.trim();
+
+  console.log(`[REGISTER] Email: ${trimmedEmail}`);
 
   // Check if email already registered
-  const existing = await User.findOne({ email: user.email }).exec();
+  const existing = await User.findOne({ email: trimmedEmail }).exec();
   if (existing) {
     console.log("[REGISTER] ℹ️ Email already in use, suggesting login");
     return res.status(200).json({ 
@@ -227,18 +230,18 @@ const registerUser = async (req, res) => {
   }
 
   // Validate email domain
-  const emailCheck = await validateEmail(user.email);
+  const emailCheck = await validateEmail(trimmedEmail);
   if (!emailCheck.valid) {
     return res.status(400).json({ message: emailCheck.reason });
   }
 
   // Hash password and store pending user in OTP store (not DB yet)
   const hashedPass = await bcrypt.hash(user.password, 10);
-  otpStore.set(user.email, {
+  otpStore.set(trimmedEmail, {
     pendingUser: {
-      username: user.username,
+      username: trimmedUsername,
       password: hashedPass,
-      email: user.email,
+      email: trimmedEmail,
     },
     otp: null,
     expiresAt: null,
@@ -246,16 +249,16 @@ const registerUser = async (req, res) => {
 
   // Send OTP
   try {
-    await sendOTP(user.email, "register");
+    await sendOTP(trimmedEmail, "register");
     console.log("[REGISTER] ✅ OTP sent, waiting for verification");
     return res.status(200).json({
       message: "OTP sent to your email. Please verify to complete registration.",
       step: "verify-otp",
-      email: user.email,
+      email: trimmedEmail,
     });
   } catch (err) {
     console.error("[REGISTER] ❌ Failed to send OTP:", err.message);
-    otpStore.delete(user.email);
+    otpStore.delete(trimmedEmail);
     return res.status(500).json({ message: "Failed to send OTP. Please try again." });
   }
 };
@@ -272,9 +275,11 @@ const userLogin = async (req, res) => {
     return res.status(400).json({ message: "All fields are required" });
   }
 
-  console.log(`[LOGIN] Email: ${user.email}`);
+  const trimmedEmail = user.email.trim().toLowerCase();
 
-  const loginUser = await User.findOne({ email: user.email }).exec();
+  console.log(`[LOGIN] Email: ${trimmedEmail}`);
+
+  const loginUser = await User.findOne({ email: trimmedEmail }).exec();
   if (!loginUser) {
     console.log("[LOGIN] ❌ User not found");
     return res.status(404).json({ message: "User Not Found" });
@@ -296,18 +301,18 @@ const userLogin = async (req, res) => {
   }
   console.log("[LOGIN] ✅ Password matched");
 
-  const emailCheck = await validateEmail(user.email);
+  const emailCheck = await validateEmail(trimmedEmail);
   if (!emailCheck.valid) {
     return res.status(400).json({ message: emailCheck.reason });
   }
 
   try {
-    await sendOTP(user.email, "login");
+    await sendOTP(trimmedEmail, "login");
     console.log("[LOGIN] ✅ OTP sent, waiting for verification");
     return res.status(200).json({
       message: "OTP sent to your email. Please verify to complete login.",
       step: "verify-otp",
-      email: user.email,
+      email: trimmedEmail,
     });
   } catch (err) {
     console.error("[LOGIN] ❌ Failed to send OTP:", err.message);
@@ -328,7 +333,9 @@ const verifyOTP = async (req, res) => {
     return res.status(400).json({ message: "Email and OTP are required" });
   }
 
-  const result = verifyOTPCode(email, otp);
+  const trimmedEmail = email.trim().toLowerCase();
+
+  const result = verifyOTPCode(trimmedEmail, otp);
   if (!result.valid) {
     return res.status(400).json({ message: result.reason });
   }
@@ -340,8 +347,8 @@ const verifyOTP = async (req, res) => {
     console.log("[VERIFY OTP] Registration flow — creating user in DB");
     try {
       const createdUser = await User.create(record.pendingUser);
-      otpStore.delete(email);
-      console.log("[VERIFY OTP] ✅ User created and verified:", email);
+      otpStore.delete(trimmedEmail);
+      console.log("[VERIFY OTP] ✅ User created and verified:", trimmedEmail);
       return res.status(201).json({
         message: "Registration successful",
         user: createdUser.toUserResponse(),
@@ -354,16 +361,16 @@ const verifyOTP = async (req, res) => {
 
   // ── Login flow: user already exists
   console.log("[VERIFY OTP] Login flow — fetching existing user");
-  const loginUser = await User.findOne({ email }).exec();
+  const loginUser = await User.findOne({ email: trimmedEmail }).exec();
   if (!loginUser) {
     return res.status(404).json({ message: "User Not Found" });
   }
 
-  otpStore.delete(email);
+  otpStore.delete(trimmedEmail);
   loginUser.lastLogin = Date.now();
   await loginUser.save();
 
-  console.log("[VERIFY OTP] ✅ Login verified:", email);
+  console.log("[VERIFY OTP] ✅ Login verified:", trimmedEmail);
   return res.status(200).json({
     message: "Login successful",
     user: loginUser.toUserResponse(),
@@ -379,7 +386,9 @@ const resendOTP = async (req, res) => {
 
   if (!email) return res.status(400).json({ message: "Email is required" });
 
-  const record = otpStore.get(email);
+  const trimmedEmail = email.trim().toLowerCase();
+
+  const record = otpStore.get(trimmedEmail);
   if (!record) {
     console.log("[RESEND OTP] ❌ No pending OTP session for this email");
     return res.status(400).json({ message: "No active session. Please start again." });
@@ -390,7 +399,7 @@ const resendOTP = async (req, res) => {
   console.log(`[RESEND OTP] Purpose: ${purpose}`);
 
   try {
-    await sendOTP(email, purpose);
+    await sendOTP(trimmedEmail, purpose);
     return res.status(200).json({ message: "OTP resent successfully." });
   } catch (err) {
     console.error("[RESEND OTP] ❌ Failed:", err.message);
@@ -406,12 +415,13 @@ const updateUser = async (req, res) => {
   const target = await User.findOne({ email }).exec();
 
   if (user.email) {
-    const emailCheck = await validateEmail(user.email);
+    const trimmedEmail = user.email.trim().toLowerCase();
+    const emailCheck = await validateEmail(trimmedEmail);
     if (!emailCheck.valid) return res.status(400).json({ message: emailCheck.reason });
-    target.email = user.email;
+    target.email = trimmedEmail;
   }
 
-  if (user.username) target.username = user.username;
+  if (user.username) target.username = user.username.trim();
   if (user.password) target.password = await bcrypt.hash(user.password, 10);
   if (typeof user.image !== "undefined") target.image = user.image;
   if (typeof user.bio !== "undefined") target.bio = user.bio;
