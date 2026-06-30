@@ -53,6 +53,10 @@ try {
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
 const validateEmail = async (email) => {
+  if (typeof email !== "string" || email.length > 254) {
+    return { valid: false, reason: "Email must be a string under 254 characters" };
+  }
+
   console.log(`[EMAIL VALIDATE] Checking format for: ${email}`);
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
@@ -214,6 +218,22 @@ const registerUser = async (req, res) => {
     return res.status(400).json({ message: "All fields are required" });
   }
 
+  if (typeof user.email !== "string" || typeof user.password !== "string" || typeof user.username !== "string") {
+    return res.status(400).json({ message: "Invalid input types" });
+  }
+
+  if (user.email.length > 254) {
+    return res.status(400).json({ message: "Email cannot exceed 254 characters" });
+  }
+
+  if (user.password.length > 72) {
+    return res.status(400).json({ message: "Password cannot exceed 72 characters" });
+  }
+
+  if (user.username.length > 100) {
+    return res.status(400).json({ message: "Username cannot exceed 100 characters" });
+  }
+
   const trimmedEmail = user.email.trim().toLowerCase();
   const trimmedUsername = user.username.trim();
 
@@ -275,6 +295,18 @@ const userLogin = async (req, res) => {
     return res.status(400).json({ message: "All fields are required" });
   }
 
+  if (typeof user.email !== "string" || typeof user.password !== "string") {
+    return res.status(400).json({ message: "Invalid input types" });
+  }
+
+  if (user.email.length > 254) {
+    return res.status(400).json({ message: "Email cannot exceed 254 characters" });
+  }
+
+  if (user.password.length > 72) {
+    return res.status(400).json({ message: "Password cannot exceed 72 characters" });
+  }
+
   const trimmedEmail = user.email.trim().toLowerCase();
 
   console.log(`[LOGIN] Email: ${trimmedEmail}`);
@@ -333,6 +365,18 @@ const verifyOTP = async (req, res) => {
     return res.status(400).json({ message: "Email and OTP are required" });
   }
 
+  if (typeof email !== "string" || email.length > 254) {
+    return res.status(400).json({ message: "Invalid email" });
+  }
+
+  if (typeof otp !== "string" && typeof otp !== "number") {
+    return res.status(400).json({ message: "Invalid OTP format" });
+  }
+  const otpStr = String(otp);
+  if (otpStr.length > 10) {
+    return res.status(400).json({ message: "Invalid OTP length" });
+  }
+
   const trimmedEmail = email.trim().toLowerCase();
 
   const result = verifyOTPCode(trimmedEmail, otp);
@@ -386,6 +430,10 @@ const resendOTP = async (req, res) => {
 
   if (!email) return res.status(400).json({ message: "Email is required" });
 
+  if (typeof email !== "string" || email.length > 254) {
+    return res.status(400).json({ message: "Invalid email" });
+  }
+
   const trimmedEmail = email.trim().toLowerCase();
 
   const record = otpStore.get(trimmedEmail);
@@ -415,14 +463,39 @@ const updateUser = async (req, res) => {
   const target = await User.findOne({ email }).exec();
 
   if (user.email) {
+    if (typeof user.email !== "string") {
+      return res.status(400).json({ message: "Email must be a string" });
+    }
     const trimmedEmail = user.email.trim().toLowerCase();
+    if (trimmedEmail.length > 254) {
+      return res.status(400).json({ message: "Email cannot exceed 254 characters" });
+    }
     const emailCheck = await validateEmail(trimmedEmail);
     if (!emailCheck.valid) return res.status(400).json({ message: emailCheck.reason });
     target.email = trimmedEmail;
   }
 
-  if (user.username) target.username = user.username.trim();
-  if (user.password) target.password = await bcrypt.hash(user.password, 10);
+  if (user.username) {
+    if (typeof user.username !== "string") {
+      return res.status(400).json({ message: "Username must be a string" });
+    }
+    const trimmedUsername = user.username.trim();
+    if (trimmedUsername.length > 100) {
+      return res.status(400).json({ message: "Username cannot exceed 100 characters" });
+    }
+    target.username = trimmedUsername;
+  }
+
+  if (user.password) {
+    if (typeof user.password !== "string") {
+      return res.status(400).json({ message: "Password must be a string" });
+    }
+    if (user.password.length > 72) {
+      return res.status(400).json({ message: "Password cannot exceed 72 characters" });
+    }
+    target.password = await bcrypt.hash(user.password, 10);
+  }
+
   if (typeof user.image !== "undefined") target.image = user.image;
   if (typeof user.bio !== "undefined") target.bio = user.bio;
 

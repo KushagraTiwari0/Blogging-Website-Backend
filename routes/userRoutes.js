@@ -2,12 +2,13 @@ const express = require('express');
 const router = express.Router();
 const userController = require('../controllers/usersController');
 const verifyJWT = require("../middleware/verifyJWT");
+const sanitizeAuth = require("../middleware/sanitizeAuth");
 
 // POST /api/users          → register (step 1: validate + send OTP)
-router.post('/users', userController.registerUser);
+router.post('/users', sanitizeAuth, userController.registerUser);
 
 // POST /api/users/login    → login (step 1: validate + send OTP)
-router.post('/users/login', userController.userLogin);
+router.post('/users/login', sanitizeAuth, userController.userLogin);
 
 // POST /api/users/verify-otp → step 2: verify OTP (shared for login + register)
 router.post('/users/verify-otp', userController.verifyOTP);

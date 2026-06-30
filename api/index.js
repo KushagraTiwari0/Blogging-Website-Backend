@@ -9,10 +9,13 @@ var cors = require('cors')
 const corsOptions = require('../config/corsOptions');
 
 
+const rateLimiter = require("../middleware/rateLimiter");
+
 connectDB();
 //user routes => /api/users and /api/user
 app.use(cors(corsOptions));
-app.use(express.json()); //middleware to parse json
+app.use(express.json({ limit: '15kb' })); // limit express parser size globally to 15kb
+app.use(rateLimiter); // custom IP rate-limiter middleware
 
 // ping route for cron job
 app.get("/ping", (req, res) => {
